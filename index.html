@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>3D Dice</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.11.5/gsap.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #f0f0f0;
+      font-family: 'Press Start 2P', cursive;
+      overflow: hidden;
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    canvas {
+      display: block;
+      border: 2px solid #000;
+      max-width: 500px;
+      max-height: 500px;
+      aspect-ratio: 1 / 1;
+      background-color: #ddd;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-family: 'Press Start 2P', cursive;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(135deg, #4364f7, #6200ea);
+      transform: translateY(-2px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .instructions {
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <canvas id="gameCanvas"></canvas>
+    <button id="rollButton">Roll the Dice</button>
+    <div class="instructions">Press "Roll the Dice" or spacebar</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const rollButton = document.getElementById('rollButton');
+    let scene, camera, renderer, cube;
+    let isRolling = false;
+
+    function init() {
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      camera.position.z = 4;
+
+      renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+      renderer.setSize(canvas.clientWidth, canvas.clientHeight);
+      renderer.setClearColor(0xdddddd);
+
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const materials = [
+        createSideMaterial(1),
+        createSideMaterial(2),
+        createSideMaterial(3),
+        createSideMaterial(4),
+        createSideMaterial(5),
+        createSideMaterial(6)
+      ];
+
+      cube = new THREE.Mesh(geometry, materials);
+      scene.add(cube);
+
+      window.addEventListener('resize', resizeCanvas);
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Spacebar') rollDice();
+      });
+
+      resizeCanvas();
+      animate();
+    }
+
+    function createSideMaterial(number) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#000';
+      ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = '#000';
+      const r = 10;
+      const c = canvas.width / 2;
+      const positions = {
+        1: [[c, c]],
+        2: [[32, 32], [96, 96]],
+        3: [[32, 32], [c, c], [96, 96]],
+        4: [[32, 32], [96, 32], [32, 96], [96, 96]],
+        5: [[32, 32], [96, 32], [c, c], [32, 96], [96, 96]],
+        6: [[32, 32], [96, 32], [32, c], [96, c], [32, 96], [96, 96]]
+      };
+
+      positions[number].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      return new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(canvas) });
+    }
+
+    function rollDice() {
+      if (isRolling) return;
+      isRolling = true;
+      rollButton.textContent = "Rolling...";
+
+      const tumbleX = Math.random() * 8 * Math.PI;
+      const tumbleY = Math.random() * 8 * Math.PI;
+
+      const finalRotationX = Math.random() * Math.PI * 2;
+      const finalRotationY = Math.random() * Math.PI * 2;
+
+      gsap.to(cube.rotation, {
+        duration: 0.6,
+        x: tumbleX,
+        y: tumbleY,
+        ease: "power1.out",
+        onComplete: () => {
+          gsap.to(cube.rotation, {
+            duration: 1.2,
+            x: finalRotationX,
+            y: finalRotationY,
+            ease: "power2.inOut",
+            onComplete: () => {
+              rollButton.textContent = "Roll the Dice";
+              isRolling = false;
+
+              setVisibleFace();
+            }
+          });
+        }
+      });
+    }
+
+    function setVisibleFace() {
+      const randFace = Math.floor(Math.random() * 6);
+
+      const rotations = [
+        { x: 0, y: 0 },   // Face 1
+        { x: Math.PI, y: 0 },   // Face 2
+        { x: 0, y: Math.PI / 2 },   // Face 3
+        { x: 0, y: -Math.PI / 2 },  // Face 4
+        { x: Math.PI / 2, y: 0 },   // Face 5
+        { x: -Math.PI / 2, y: 0 }   // Face 6
+      ];
+
+      const { x, y } = rotations[randFace];
+
+      gsap.to(cube.rotation, {
+        duration: 1,
+        x: x,
+        y: y,
+        ease: "power2.inOut"
+      });
+    }
+
+    function resizeCanvas() {
+      const size = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+      canvas.width = size;
+      canvas.height = size;
+      renderer.setSize(size, size);
+      camera.aspect = 1;
+      camera.updateProjectionMatrix();
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
